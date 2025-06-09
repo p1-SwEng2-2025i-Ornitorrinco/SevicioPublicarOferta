@@ -4,52 +4,56 @@ from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
 from typing import Optional, List
 from bson import ObjectId
-from app.db import init_db, db
+from app.db import db, client
 
 app = FastAPI(title="Servicio: Publicar Oferta")
 
-# Inicializamos la conexión a MongoDB al arrancar
-init_db(app)
+# Opcional: cerrar Mongo al apagar FastAPI
+@app.on_event("shutdown")
+async def close_mongo():
+    client.close()
 
 
-# --- Modelo Pydantic para Oferta (datos entrantes) ---
+# --- Modelos Pydantic para Pydantic v2 ---
+
 class OfertaIn(BaseModel):
     titulo: str = Field(..., min_length=5, description="Título mínimo 5 caracteres")
     descripcion: str = Field(..., min_length=20, description="Descripción mínimo 20 caracteres")
     categoria: str = Field(..., description="Categoría (p.ej. 'Plomería', 'Electricidad', etc.)")
     horario: str = Field(..., description="Horario en que el proveedor está disponible")
 
-    class Config:
-        json_schema_extra = {
+    model_config = {
+        "json_schema_extra": {
             "example": {
                 "titulo": "Reparación de tubería de cocina",
-                "descripcion": "Necesito un plomero que repare una fuga en la tubería de la cocina, preferiblemente entre semana de 3pm a 6pm.",
+                "descripcion": "Soy un plomero que repara una fugas en la tubería de la cocina, preferiblemente entre semana de 3pm a 6pm.",
                 "categoria": "Plomería",
                 "horario": "Lun–Vie 15:00–18:00"
             }
         }
+    }
 
 
-# --- Modelo Pydantic para Oferta (datos salientes, con _id convertido a string) ---
 class OfertaOut(BaseModel):
-    id: str = Field(..., alias="_id")             # Aquí recibiremos _id como str
+    id: str = Field(..., alias="_id")
     titulo: str
     descripcion: str
     categoria: str
     horario: str
-    reputacion: float = Field(0.0, description="Reputación inicial del proveedor")
+    reputacion: float
 
-    class Config:
-        model_config = { "populate_by_name": True }  # Permite usar el alias "_id"
+    model_config = {
+        "populate_by_name": True
+    }
 
 
-# --- Endpoint raíz de prueba ---
+# --- Endpoints de prueba ---
+
 @app.get("/")
 async def read_root():
     return {"mensaje": "API de Publicar Oferta funcionando"}
 
 
-# --- Endpoint para comprobar que la API está arriba ---
 @app.get("/status")
 async def status():
     return {"status": "OK"}
@@ -58,28 +62,92 @@ async def status():
 # --- Crear nueva oferta ---
 @app.post("/ofertas", response_model=OfertaOut, status_code=201)
 async def crear_oferta(oferta: OfertaIn):
-    oferta_dict = oferta.dict()
+    oferta_dict = oferta.model_dump()  # Diccionario limpio validado por Pydantic
     oferta_dict["reputacion"] = 0.0
 
-    # 1. Insertamos en MongoDB
+    # Aquí, db.ofertas nunca será None porque lo inicializamos en db.py
     result = await db.ofertas.insert_one(oferta_dict)
 
-    # 2. Buscamos la oferta recién creada
-    nuevo = await db.ofertas.find_one({"_id": result.inserted_id})
-    if not nuevo:
-        raise HTTPException(status_code=500, detail="Error al crear la oferta")
+    # Recuperamos el documento recién insertado
+    nuevo_doc = await db.ofertas.find_one({"_id": result.inserted_id})
+    if not nuevo_doc:
+        raise HTTPException(status_code=500, detail="Error al crear oferta")
 
-    # 3. Convertimos el ObjectId a str para que Pydantic lo acepte como 'id'
-    nuevo["_id"] = str(nuevo["_id"])
-    return nuevo
+    # Convertimos ObjectId a str para que Pydantic lo serialice bien
+    nuevo_doc["_id"] = str(nuevo_doc["_id"])
+    return nuevo_doc
 
 
-# --- Listar todas las ofertas (sin filtros, paginación simple) ---
+# --- Listar todas las ofertas (sin filtros) ---
 @app.get("/ofertas", response_model=List[OfertaOut])
 async def listar_ofertas():
     cursor = db.ofertas.find()
-    ofertas = []
+    lista = []
     async for doc in cursor:
-        doc["_id"] = str(doc["_id"])   # Convertimos cada ObjectId a str
-        ofertas.append(doc)
-    return ofertas
+        doc["_id"] = str(doc["_id"])
+        lista.append(doc)
+    return lista
+
+# --- MODELOS PARA CATEGORÍAS ---
+
+class CategoriaIn(BaseModel):
+    nombre: str = Field(..., min_length=3, description="Nombre de la categoría, mínimo 3 caracteres")
+
+    model_config = {
+        "json_schema_extra": {
+            "example": {
+                "nombre": "Plomería"
+            }
+        }
+    }
+
+
+class CategoriaOut(BaseModel):
+    id: str = Field(..., alias="_id")
+    nombre: str
+
+    model_config = {
+        "populate_by_name": True
+    }
+
+
+# --- RUTAS PARA CATEGORÍAS ---
+
+@app.post("/categorias", response_model=CategoriaOut, status_code=201)
+async def crear_categoria(cat: CategoriaIn):
+    # 1. Insertar la categoría en Mongo
+    cat_dict = cat.model_dump()
+    result = await db.categorias.insert_one(cat_dict)
+
+    # 2. Recuperar el documento recién creado
+    nuevo_doc = await db.categorias.find_one({"_id": result.inserted_id})
+    if not nuevo_doc:
+        raise HTTPException(status_code=500, detail="Error al crear categoría")
+
+    # 3. Convertir ObjectId a str
+    nuevo_doc["_id"] = str(nuevo_doc["_id"])
+    return nuevo_doc
+
+
+@app.get("/categorias", response_model=List[CategoriaOut])
+async def listar_categorias():
+    cursor = db.categorias.find()
+    lista = []
+    async for doc in cursor:
+        doc["_id"] = str(doc["_id"])
+        lista.append(doc)
+    return lista
+
+
+@app.delete("/categorias/{categoria_id}", status_code=200)
+async def eliminar_categoria(categoria_id: str):
+    # Validar que el ID sea un ObjectId válido
+    if not ObjectId.is_valid(categoria_id):
+        raise HTTPException(status_code=400, detail="ID de categoría inválido")
+
+    oid = ObjectId(categoria_id)
+    result = await db.categorias.delete_one({"_id": oid})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Categoría no encontrada")
+
+    return {"mensaje": "Categoría eliminada correctamente"}
