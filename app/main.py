@@ -67,7 +67,7 @@ async def crear_oferta(oferta: OfertaIn):
 
     # Aquí, db.ofertas nunca será None porque lo inicializamos en db.py
     result = await db.ofertas.insert_one(oferta_dict)
-    
+
     # Dentro de crear_oferta:
     existe = await db.categorias.find_one({"nombre": oferta_dict["categoria"]})
     if not existe:
@@ -87,14 +87,35 @@ async def crear_oferta(oferta: OfertaIn):
 
 
 # --- Listar todas las ofertas (sin filtros) ---
+from fastapi import Query
+
 @app.get("/ofertas", response_model=List[OfertaOut])
-async def listar_ofertas():
-    cursor = db.ofertas.find()
-    lista = []
+async def listar_ofertas(
+    skip: int = 0,
+    limit: int = 10,
+    categoria: str | None = Query(default=None),
+    palabra_clave: str | None = Query(default=None),
+):
+    # Construir el filtro dinámicamente
+    filtro = {}
+
+    if categoria:
+        filtro["categoria"] = categoria
+
+    if palabra_clave:
+        filtro["$or"] = [
+            {"titulo": {"$regex": palabra_clave, "$options": "i"}},
+            {"descripcion": {"$regex": palabra_clave, "$options": "i"}}
+        ]
+
+    cursor = db.ofertas.find(filtro).skip(skip).limit(limit)
+
+    ofertas = []
     async for doc in cursor:
         doc["_id"] = str(doc["_id"])
-        lista.append(doc)
-    return lista
+        ofertas.append(doc)
+
+    return ofertas
 
 # --- MODELOS PARA CATEGORÍAS ---
 
