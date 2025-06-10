@@ -46,6 +46,27 @@ class OfertaOut(BaseModel):
         "populate_by_name": True
     }
 
+# Modelo de actualizacion de actualizar oferta
+
+from typing import Optional
+
+class OfertaUpdate(BaseModel):
+    titulo: Optional[str] = Field(None, min_length=5, description="Título mínimo 5 caracteres")
+    descripcion: Optional[str] = Field(None, min_length=20, description="Descripción mínimo 20 caracteres")
+    categoria: Optional[str] = Field(None, description="Categoría (p.ej. 'Plomería', 'Electricidad', etc.)")
+    horario: Optional[str] = Field(None, description="Horario en que el proveedor está disponible")
+
+    model_config = {
+        "json_schema_extra": {
+            "example": {
+                "titulo": "Clases de guitarra (avanzado)",
+                "descripcion": "Doy clases particulares avanzadas de guitarra: acordes complejos, escalas y técnica. Zona norte, 2 horas por sesión.",
+                "categoria": "Música",
+                "horario": "Lun–Viernes 16:00–20:00"
+            }
+        }
+    }
+
 
 # --- Endpoints de prueba ---
 
@@ -118,6 +139,58 @@ async def listar_ofertas(
         ofertas.append(doc)
 
     return ofertas
+
+#PUT ofertas
+
+@app.put("/ofertas/{id}", response_model=OfertaOut)
+async def actualizar_oferta(id: str, datos: OfertaUpdate):
+    # 1. Convertir y validar el ID
+    try:
+        obj_id = ObjectId(id)
+    except:
+        raise HTTPException(status_code=400, detail="ID inválido")
+
+    # 2. Verificar que exista la oferta
+    existe = await db.ofertas.find_one({"_id": obj_id})
+    if not existe:
+        raise HTTPException(status_code=404, detail="Oferta no encontrada")
+
+    # 3. Construir dict con solo los campos presentes en el body
+    update_data = {k: v for k, v in datos.model_dump().items() if v is not None}
+    if not update_data:
+        raise HTTPException(status_code=400, detail="No hay campos para actualizar")
+
+    # 4. (Opcional) Validar que la categoría nueva exista
+    if "categoria" in update_data:
+        cat = await db.categorias.find_one({"nombre": update_data["categoria"]})
+        if not cat:
+            raise HTTPException(status_code=400, detail="La categoría especificada no existe")
+
+    # 5. Ejecutar el update en MongoDB
+    await db.ofertas.update_one({"_id": obj_id}, {"$set": update_data})
+
+    # 6. Recuperar el documento actualizado
+    doc_actualizado = await db.ofertas.find_one({"_id": obj_id})
+    doc_actualizado["_id"] = str(doc_actualizado["_id"])
+    return doc_actualizado
+
+# DELETE Ofertas
+
+@app.delete("/ofertas/{id}", status_code=200)
+async def eliminar_oferta(id: str):
+    # 1. Validar formato de ID
+    try:
+        obj_id = ObjectId(id)
+    except:
+        raise HTTPException(status_code=400, detail="ID inválido")
+
+    # 2. Intentar eliminar
+    result = await db.ofertas.delete_one({"_id": obj_id})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Oferta no encontrada")
+
+    return {"mensaje": "Oferta eliminada correctamente"}
+
 
 # --- MODELOS PARA CATEGORÍAS ---
 
