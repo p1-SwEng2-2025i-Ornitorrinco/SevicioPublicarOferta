@@ -67,7 +67,12 @@ async def crear_oferta(oferta: OfertaIn):
 
     # Aquí, db.ofertas nunca será None porque lo inicializamos en db.py
     result = await db.ofertas.insert_one(oferta_dict)
-
+    
+    # Dentro de crear_oferta:
+    existe = await db.categorias.find_one({"nombre": oferta_dict["categoria"]})
+    if not existe:
+        raise HTTPException(status_code=400, detail="Categoría no existe")
+    
     # Recuperamos el documento recién insertado
     nuevo_doc = await db.ofertas.find_one({"_id": result.inserted_id})
     if not nuevo_doc:
@@ -76,6 +81,9 @@ async def crear_oferta(oferta: OfertaIn):
     # Convertimos ObjectId a str para que Pydantic lo serialice bien
     nuevo_doc["_id"] = str(nuevo_doc["_id"])
     return nuevo_doc
+
+
+
 
 
 # --- Listar todas las ofertas (sin filtros) ---
