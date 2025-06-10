@@ -83,14 +83,12 @@ async def crear_oferta(oferta: OfertaIn):
     return nuevo_doc
 
 
-
-
-
-# --- Listar todas las ofertas (sin filtros) ---
+# --- Listar todas las ofertas con o sin filtro ---
 from fastapi import Query
 
 @app.get("/ofertas", response_model=List[OfertaOut])
 async def listar_ofertas(
+    id: Optional[str] = Query(None, description="ID de la oferta"),
     skip: int = 0,
     limit: int = 10,
     categoria: str | None = Query(default=None),
@@ -98,7 +96,11 @@ async def listar_ofertas(
 ):
     # Construir el filtro dinámicamente
     filtro = {}
-
+    if id:
+        try:
+            filtro["_id"] = ObjectId(id)
+        except:
+            raise HTTPException(status_code=400, detail="ID inválido")
     if categoria:
         filtro["categoria"] = categoria
 
