@@ -40,7 +40,7 @@ class OfertaIn(BaseModel):
         "json_schema_extra": {
             "example": {
                 "titulo": "Reparación de tubería de cocina",
-                "descripcion": "Necesito un plomero que repare una fuga en la tubería de la cocina, preferiblemente entre semana de 3pm a 6pm.",
+                "descripcion": "Necesito un plomero que repare una fuga en la tubería de la cocina...",
                 "categoria": "Plomería",
                 "ubicacion": "Bogotá, Colombia",
                 "palabras_clave": ["fuga", "tubería", "cocina"],
@@ -59,7 +59,6 @@ class OfertaOut(BaseModel):
     palabras_clave: List[str]
     costo: float
     horario: str
-    reputacion: float
 
     model_config = {
         "populate_by_name": True
@@ -77,8 +76,8 @@ class OfertaUpdate(BaseModel):
     model_config = {
         "json_schema_extra": {
             "example": {
-                "titulo": "Clases de guitarra (avanzado)",
-                "descripcion": "Doy clases particulares avanzadas de guitarra: acordes, escalas y técnica. Zona norte, 2 horas por sesión.",
+                "titulo": "Clases de guitarra avanzado",
+                "descripcion": "Clases avanzadas de guitarra: acordes, escalas y técnica...",
                 "categoria": "Música",
                 "ubicacion": "Medellín, Colombia",
                 "palabras_clave": ["guitarra", "música", "avanzado"],
@@ -87,7 +86,7 @@ class OfertaUpdate(BaseModel):
             }
         }
     }
-    
+
 class CategoriaIn(BaseModel):
     nombre: str = Field(..., min_length=3, description="Nombre de la categoría, mínimo 3 caracteres")
 
@@ -105,23 +104,21 @@ class CategoriaOut(BaseModel):
         "populate_by_name": True
     }
 
-
-# --- Endpoints de prueba ---
+# ─── Endpoints básicos ─────────────────────────────────────────────────────────
 
 @app.get("/")
 async def read_root():
     return {"mensaje": "API de Publicar Oferta funcionando"}
 
-
 @app.get("/status")
 async def status():
     return {"status": "OK"}
 
+# ─── CRUD de Ofertas ───────────────────────────────────────────────────────────
 
 @app.post("/ofertas", response_model=OfertaOut, status_code=201)
 async def crear_oferta(oferta: OfertaIn):
     oferta_dict = oferta.model_dump()
-    oferta_dict["reputacion"] = 0.0
     result = await db.ofertas.insert_one(oferta_dict)
     nuevo_doc = await db.ofertas.find_one({"_id": result.inserted_id})
     if not nuevo_doc:
@@ -151,7 +148,17 @@ async def listar_ofertas(
         ofertas.append(doc)
     return ofertas
 
-#PUT ofertas
+@app.get("/ofertas/{id}", response_model=OfertaOut)
+async def obtener_oferta(id: str):
+    try:
+        obj_id = ObjectId(id)
+    except:
+        raise HTTPException(status_code=400, detail="ID inválido")
+    oferta = await db.ofertas.find_one({"_id": obj_id})
+    if not oferta:
+        raise HTTPException(status_code=404, detail="Oferta no encontrada")
+    oferta["_id"] = str(oferta["_id"])
+    return oferta
 
 @app.put("/ofertas/{id}", response_model=OfertaOut)
 async def actualizar_oferta(id: str, datos: OfertaUpdate):
@@ -174,21 +181,15 @@ async def actualizar_oferta(id: str, datos: OfertaUpdate):
     doc_actualizado["_id"] = str(doc_actualizado["_id"])
     return doc_actualizado
 
-# DELETE Ofertas
-
 @app.delete("/ofertas/{id}", status_code=200)
 async def eliminar_oferta(id: str):
-    # 1. Validar formato de ID
     try:
         obj_id = ObjectId(id)
     except:
         raise HTTPException(status_code=400, detail="ID inválido")
-
-    # 2. Intentar eliminar
     result = await db.ofertas.delete_one({"_id": obj_id})
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Oferta no encontrada")
-
     return {"mensaje": "Oferta eliminada correctamente"}
 
 
