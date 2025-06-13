@@ -1,19 +1,21 @@
 # app/main.py
 
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, HTTPException, Query, File, UploadFile, Form
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 from typing import Optional, List
 from bson import ObjectId
 from app.db import db, client
+import os
+import uuid
 
+# Asegurar que exista el directorio para imágenes
+os.makedirs("images", exist_ok=True)
 
 app = FastAPI(title="Servicio: Publicar Oferta")
 
-# Opcional: cerrar Mongo al apagar FastAPI
-@app.on_event("shutdown")
-async def close_mongo():
-    client.close()
+
 
 # Configurar CORS
 origins = ["*"]  # Cambiar a lista de dominios específicos en producción
@@ -24,6 +26,14 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Montar directorio estático para servir imágenes
+app.mount("/images", StaticFiles(directory="images"), name="images")
+
+# Opcional: cerrar Mongo al apagar FastAPI
+@app.on_event("shutdown")
+async def close_mongo():
+    client.close()
 
 # --- Modelos Pydantic para Pydantic ---
 
@@ -59,33 +69,20 @@ class OfertaOut(BaseModel):
     palabras_clave: List[str]
     costo: float
     horario: str
+    imagen_url: Optional[str] = None
 
-    model_config = {
-        "populate_by_name": True
-    }
+    model_config = {"populate_by_name": True}
 
 class OfertaUpdate(BaseModel):
-    titulo: Optional[str] = Field(None, min_length=5, description="Título mínimo 5 caracteres")
-    descripcion: Optional[str] = Field(None, min_length=20, description="Descripción mínimo 20 caracteres")
-    categoria: Optional[str] = Field(None, description="Categoría (p.ej. 'Plomería', 'Electricidad', etc.)")
-    ubicacion: Optional[str] = Field(None, description="Ubicación del servicio")
-    palabras_clave: Optional[List[str]] = Field(None, min_items=1, description="Lista de palabras clave relevantes")
-    costo: Optional[float] = Field(None, gt=0, description="Costo del servicio, debe ser mayor que 0")
-    horario: Optional[str] = Field(None, description="Horario en que el proveedor está disponible")
+    titulo: Optional[str] = Field(None, min_length=5)
+    descripcion: Optional[str] = Field(None, min_length=20)
+    categoria: Optional[str] = None
+    ubicacion: Optional[str] = None
+    palabras_clave: Optional[List[str]] = None
+    costo: Optional[float] = Field(None, gt=0)
+    horario: Optional[str] = None
 
-    model_config = {
-        "json_schema_extra": {
-            "example": {
-                "titulo": "Clases de guitarra avanzado",
-                "descripcion": "Clases avanzadas de guitarra: acordes, escalas y técnica...",
-                "categoria": "Música",
-                "ubicacion": "Medellín, Colombia",
-                "palabras_clave": ["guitarra", "música", "avanzado"],
-                "costo": 80000.0,
-                "horario": "Lun–Vie 16:00–20:00"
-            }
-        }
-    }
+    model_config = {"json_schema_extra": {"example": {}}}
 
 class CategoriaIn(BaseModel):
     nombre: str = Field(..., min_length=3, description="Nombre de la categoría, mínimo 3 caracteres")
@@ -117,14 +114,44 @@ async def status():
 # ─── CRUD de Ofertas ───────────────────────────────────────────────────────────
 
 @app.post("/ofertas", response_model=OfertaOut, status_code=201)
-async def crear_oferta(oferta: OfertaIn):
-    oferta_dict = oferta.model_dump()
+async def crear_oferta(
+    titulo: str = Form(..., min_length=5),
+    descripcion: str = Form(..., min_length=20),
+    categoria: str = Form(...),
+    ubicacion: str = Form(...),
+    palabras_clave: str = Form(...),  # CSV de palabras clave
+    costo: float = Form(..., gt=0),
+    horario: str = Form(...),
+    imagen: Optional[UploadFile] = File(None),
+):
+    # Procesar palabras clave
+    claves = [kw.strip() for kw in palabras_clave.split(",") if kw.strip()]
+    if not claves:
+        raise HTTPException(status_code=400, detail="Se requieren palabras clave")
+
+    oferta_dict = {
+        "titulo": titulo,
+        "descripcion": descripcion,
+        "categoria": categoria,
+        "ubicacion": ubicacion,
+        "palabras_clave": claves,
+        "costo": costo,
+        "horario": horario,
+    }
+    # Guardar imagen si se proporcionó
+    if imagen:
+        ext = os.path.splitext(imagen.filename)[1]
+        filename = f"{uuid.uuid4().hex}{ext}"
+        file_path = os.path.join("images", filename)
+        with open(file_path, "wb") as f:
+            content = await imagen.read()
+            f.write(content)
+        oferta_dict["imagen_url"] = f"/images/{filename}"
+
     result = await db.ofertas.insert_one(oferta_dict)
-    nuevo_doc = await db.ofertas.find_one({"_id": result.inserted_id})
-    if not nuevo_doc:
-        raise HTTPException(status_code=500, detail="Error al crear oferta")
-    nuevo_doc["_id"] = str(nuevo_doc["_id"])
-    return nuevo_doc
+    nuevo = await db.ofertas.find_one({"_id": result.inserted_id})
+    nuevo["_id"] = str(nuevo["_id"])
+    return nuevo
 
 @app.get("/ofertas", response_model=List[OfertaOut])
 async def listar_ofertas(
@@ -161,7 +188,11 @@ async def obtener_oferta(id: str):
     return oferta
 
 @app.put("/ofertas/{id}", response_model=OfertaOut)
-async def actualizar_oferta(id: str, datos: OfertaUpdate):
+async def actualizar_oferta(
+    id: str,
+    datos: OfertaUpdate,
+    imagen: Optional[UploadFile] = File(None),
+):
     try:
         obj_id = ObjectId(id)
     except:
@@ -169,17 +200,22 @@ async def actualizar_oferta(id: str, datos: OfertaUpdate):
     existe = await db.ofertas.find_one({"_id": obj_id})
     if not existe:
         raise HTTPException(status_code=404, detail="Oferta no encontrada")
+
     update_data = {k: v for k, v in datos.model_dump().items() if v is not None}
-    if not update_data:
-        raise HTTPException(status_code=400, detail="No hay campos para actualizar")
-    if "categoria" in update_data:
-        cat = await db.categorias.find_one({"nombre": update_data["categoria"]})
-        if not cat:
-            raise HTTPException(status_code=400, detail="La categoría especificada no existe")
+    # Procesar nueva imagen
+    if imagen:
+        ext = os.path.splitext(imagen.filename)[1]
+        filename = f"{uuid.uuid4().hex}{ext}"
+        file_path = os.path.join("images", filename)
+        with open(file_path, "wb") as f:
+            content = await imagen.read()
+            f.write(content)
+        update_data["imagen_url"] = f"/images/{filename}"
+
     await db.ofertas.update_one({"_id": obj_id}, {"$set": update_data})
-    doc_actualizado = await db.ofertas.find_one({"_id": obj_id})
-    doc_actualizado["_id"] = str(doc_actualizado["_id"])
-    return doc_actualizado
+    doc = await db.ofertas.find_one({"_id": obj_id})
+    doc["_id"] = str(doc["_id"])
+    return doc
 
 @app.delete("/ofertas/{id}", status_code=200)
 async def eliminar_oferta(id: str):
