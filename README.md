@@ -40,11 +40,7 @@ pip install -r requirements.txt
 mkdir images
 
 # Ejecutar servidor en modo desarrollo
-<<<<<<< HEAD
-uvicorn app.main:app --reload --port 8200
-=======
-uvicorn app.main:app --reload --port 8000
->>>>>>> ce042ef87b8cb0f37d2bfff3cef5de0a014569c3
+uvicorn app.main:app --reload --port 8002
 ```
 
 ### Documentación de Endpoints
@@ -52,11 +48,7 @@ uvicorn app.main:app --reload --port 8000
 La API expone documentación Swagger automática en:
 
 ```
-<<<<<<< HEAD
-http://127.0.0.1:8200/docs
-=======
-http://127.0.0.1:8000/docs
->>>>>>> ce042ef87b8cb0f37d2bfff3cef5de0a014569c3
+http://127.0.0.1:8002/docs
 ```
 
 Allí es posible ver y probar todos los endpoints:
@@ -82,7 +74,7 @@ Allí es posible ver y probar todos los endpoints:
 Las imágenes subidas se almacenan en la carpeta `images/` y se sirven estáticamente:
 
 ```
-http://127.0.0.1:8000/images/{nombre_de_archivo}
+http://127.0.0.1:8002/images/{nombre_de_archivo}
 ```
 
 ---
