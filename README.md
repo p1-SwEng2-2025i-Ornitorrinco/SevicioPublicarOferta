@@ -1,175 +1,102 @@
-# Servicio Publicar Ofertas de Servicios
+# README.md
 
-Este repositorio contiene un microservicio REST desarrollado con **FastAPI**, **Python** y **MongoDB** para gestionar la creación, consulta, actualización y eliminación de ofertas de servicios. Incluye filtros, paginación, CORS habilitado, subida de imágenes y una colección de categorías administrables.
+## Proyecto: Servicio de Publicación de Ofertas
 
----
+Este repositorio contiene un microservicio REST en **FastAPI** para gestionar ofertas de servicios.
 
-## 📦 Tecnologías y dependencias
+### Tecnologías
 
-* **Python** 3.9+
-* **FastAPI** para construir la API REST
-* **Uvicorn** como servidor ASGI
-* **Motor** (AsyncIO MongoDB driver) para acceso asíncrono a **MongoDB**
-* **MongoDB** (local o Atlas)
-* **Pydantic v2** para validación de datos
-* **CORS Middleware** para permitir peticiones desde el frontend
+* **Python 3.9+**
+* **FastAPI**
+* **MongoDB** (vía Motor)
+* **Uvicorn** (servidor ASGI)
+* **CORS Middleware**
+* **Subida de imágenes** (almacenamiento local)
 
-Las dependencias están listadas en `requirements.txt`.
+### Requisitos Previos
 
----
+1. Python 3.9+ instalado.
+2. MongoDB corriendo localmente o en Atlas (URI en `app/db.py`).
+3. `git` y cuenta de GitHub.
 
-## 🚀 Instalación y arranque
+### Instalación y Ejecución
 
-1. Clona este repositorio:
+```bash
+# Clonar repositorio
+git clone https://github.com/tu-usuario/servicio-publicar-oferta.git
+cd servicio-publicar-oferta
 
-   ```bash
-   git clone https://github.com/tu-usuario/servicio-publicar-oferta.git
-   cd servicio-publicar-oferta
-   ```
+# Crear y activar entorno virtual
+python -m venv venv
+# Windows:
+venv\Scripts\activate
+# macOS/Linux:
+source venv/bin/activate
 
-2. Crea y activa un entorno virtual:
+# Instalar dependencias
+pip install -r requirements.txt
 
-   ```bash
-   python -m venv venv
-   # Windows
-   .\venv\Scripts\activate
-   # macOS/Linux
-   source venv/bin/activate
-   ```
+# Crear carpeta para imágenes (si no existe)
+mkdir images
 
-3. Instala las dependencias:
-
-   ```bash
-   pip install --upgrade pip
-   pip install -r requirements.txt
-   ```
-
-4. Configura la conexión a MongoDB en `app/db.py` (por defecto `mongodb://localhost:27017`):
-
-   ```python
-   MONGO_URI = "mongodb://localhost:27017"
-   ```
-
-5. Arranca la aplicación en modo desarrollo:
-
-   ```bash
-   uvicorn app.main:app --reload --port 8000
-   ```
-
-   * La API se expondrá en `http://127.0.0.1:8000/`
-   * Documentación interactiva en `http://127.0.0.1:8000/docs`
-
----
-
-## 🗂 Estructura de carpetas
-
-```
-servicio-publicar-oferta/
-├── app/
-│   ├── main.py        # Definición de endpoints, modelos y configuración (CORS, estáticos)
-│   └── db.py          # Conexión a MongoDB
-├── images/            # Directorio para almacenar imágenes subidas
-├── requirements.txt   # Dependencias del proyecto
-└── README.md          # Documentación del proyecto
+# Ejecutar servidor en modo desarrollo
+uvicorn app.main:app --reload --port 8001
 ```
 
----
+### Documentación de Endpoints
 
-## 📑 Endpoints Principales
+La API expone documentación Swagger automática en:
 
-### Ofertas
-
-| Método | Ruta            | Descripción                                             |
-| ------ | --------------- | ------------------------------------------------------- |
-| POST   | `/ofertas`      | Crear nueva oferta con datos y opcionalmente una imagen |
-| GET    | `/ofertas`      | Listar ofertas (con filtros y paginación)               |
-| GET    | `/ofertas/{id}` | Obtener detalle de una oferta                           |
-| PUT    | `/ofertas/{id}` | Actualizar campos de una oferta y reemplazar imagen     |
-| DELETE | `/ofertas/{id}` | Eliminar una oferta por ID                              |
-
-#### POST /ofertas (multipart/form-data)
-
-* **Campos (FormData)**:
-
-  * `titulo` (string, min\_length=5)
-  * `descripcion` (string, min\_length=20)
-  * `categoria` (string)
-  * `ubicacion` (string)
-  * `palabras_clave` (string CSV, mínimo 1 palabra)
-  * `costo` (float, > 0)
-  * `horario` (string)
-  * `imagen` (file, opcional)
-* **Respuesta**: JSON de la oferta creada, incluyendo `imagen_url` si se subió imagen.
-
-#### GET /ofertas
-
-* **Query params**:
-
-  * `skip` (int, default=0)
-  * `limit` (int, default=10)
-  * `categoria` (string, opcional)
-  * `palabra_clave` (string, opcional)
-* **Respuesta**: Array de ofertas.
-
-#### GET /ofertas/{id}
-
-* **Descripción**: Obtiene el detalle de una oferta por su ID.
-* **Respuesta**: JSON de la oferta.
-
-#### PUT /ofertas/{id} (multipart/form-data)
-
-* **Campos (FormData)**: mismos que POST, todos opcionales.
-* **Descripción**: Actualiza campos y permite reemplazar la imagen.
-
-#### DELETE /ofertas/{id}
-
-* **Descripción**: Elimina una oferta por su ID.
-* **Respuesta**: Mensaje de confirmación.
-
-### Categorías
-
-| Método | Ruta                         | Descripción                 |
-| ------ | ---------------------------- | --------------------------- |
-| POST   | `/categorias`                | Crear nueva categoría       |
-| GET    | `/categorias`                | Listar todas las categorías |
-| DELETE | `/categorias/{categoria_id}` | Eliminar categoría por ID   |
-
----
-
-## 🖼️ Servir Imágenes
-
-* **Directorio local**: `images/`
-* **Ruta montada**: `/images`
-* **Acceso**: `http://localhost:8000/images/{nombre_de_archivo}`
-* **Uso**: El campo `imagen_url` devuelve la URL relativa. Combínala con el host.
-
----
-
-## 🔒 CORS
-
-Se ha habilitado CORS con:
-
-```python
-origins = ["*"]
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=origins,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+```
+http://127.0.0.1:8001/docs
 ```
 
-Ajusta `origins` en producción a tus dominios permitidos.
+Allí es posible ver y probar todos los endpoints:
+
+* `POST   /ofertas`        : Crear oferta (multipart/form-data, incluye imagen y datos de cliente).
+
+* `GET    /ofertas`        : Listar ofertas con filtros (`skip`, `limit`, `categoria`, `palabra_clave`).
+
+* `GET    /ofertas/{id}`   : Obtener detalle de una oferta.
+
+* `PUT    /ofertas/{id}`   : Actualizar oferta (permite campos parciales y nueva imagen).
+
+* `DELETE /ofertas/{id}`   : Eliminar oferta.
+
+* `POST   /categorias`     : Crear categoría.
+
+* `GET    /categorias`     : Listar categorías.
+
+* `DELETE /categorias/{id}`: Eliminar categoría.
+
+### Servir Imágenes
+
+Las imágenes subidas se almacenan en la carpeta `images/` y se sirven estáticamente:
+
+```
+http://127.0.0.1:8000/images/{nombre_de_archivo}
+```
 
 ---
 
-## 🚧 Buenas prácticas y próximos pasos
+# CHANGELOG.md
 
-* Agregar autenticación (JWT) para proteger rutas sensibles.
-* Validar existencia de la categoría al crear o actualizar ofertas.
-* Añadir índices en MongoDB para mejorar rendimiento de filtros.
-* Desplegar la API en un entorno productivo (Heroku, AWS, etc.)
+## \[1.0.0] - 2025-06-13
 
----
+### Agregado
 
+* CRUD completo de ofertas con campos: título, descripción, categoría, ubicación, palabras clave, costo, horario, cliente\_id, cliente\_nombre.
+* Soporte de subida de imágenes en creación y edición de ofertas.
+* Endpoints de categorías (crear, listar, eliminar).
+* Filtros y paginación en `GET /ofertas`.
+* CORS habilitado y configuración de carpeta estática para imágenes.
+
+### Cambios
+
+* Eliminado campo de reputación en ofertas.
+
+### Documentación
+
+* Swagger UI disponible en `/docs`.
+
+*Fin del documento*
