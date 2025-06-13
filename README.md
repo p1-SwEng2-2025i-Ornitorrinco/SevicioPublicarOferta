@@ -40,7 +40,7 @@ pip install -r requirements.txt
 mkdir images
 
 # Ejecutar servidor en modo desarrollo
-uvicorn app.main:app --reload --port 8001
+uvicorn app.main:app --reload --port 8200
 ```
 
 ### Documentación de Endpoints
@@ -48,7 +48,7 @@ uvicorn app.main:app --reload --port 8001
 La API expone documentación Swagger automática en:
 
 ```
-http://127.0.0.1:8001/docs
+http://127.0.0.1:8200/docs
 ```
 
 Allí es posible ver y probar todos los endpoints:
