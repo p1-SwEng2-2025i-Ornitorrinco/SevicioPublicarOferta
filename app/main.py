@@ -69,6 +69,8 @@ class OfertaOut(BaseModel):
     palabras_clave: List[str]
     costo: float
     horario: str
+    cliente_id: str
+    cliente_nombre: str
     imagen_url: Optional[str] = None
 
     model_config = {"populate_by_name": True}
@@ -122,6 +124,8 @@ async def crear_oferta(
     palabras_clave: str = Form(...),  # CSV de palabras clave
     costo: float = Form(..., gt=0),
     horario: str = Form(...),
+    cliente_id: str = Form(...),
+    cliente_nombre: str = Form(...),
     imagen: Optional[UploadFile] = File(None),
 ):
     # Procesar palabras clave
@@ -137,6 +141,8 @@ async def crear_oferta(
         "palabras_clave": claves,
         "costo": costo,
         "horario": horario,
+        "cliente_id": cliente_id,
+        "cliente_nombre": cliente_nombre,
     }
     # Guardar imagen si se proporcionó
     if imagen:
@@ -148,6 +154,7 @@ async def crear_oferta(
             f.write(content)
         oferta_dict["imagen_url"] = f"/images/{filename}"
 
+    # Insertar en MongoDB
     result = await db.ofertas.insert_one(oferta_dict)
     nuevo = await db.ofertas.find_one({"_id": result.inserted_id})
     nuevo["_id"] = str(nuevo["_id"])
