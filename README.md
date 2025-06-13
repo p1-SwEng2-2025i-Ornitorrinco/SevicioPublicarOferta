@@ -51,7 +51,7 @@ La API expone documentación Swagger automática en:
 http://127.0.0.1:8000/docs
 ```
 
-Allí podrás ver y probar todos los endpoints:
+Allí es posible ver y probar todos los endpoints:
 
 * `POST   /ofertas`        : Crear oferta (multipart/form-data, incluye imagen y datos de cliente).
 
@@ -68,12 +68,6 @@ Allí podrás ver y probar todos los endpoints:
 * `GET    /categorias`     : Listar categorías.
 
 * `DELETE /categorias/{id}`: Eliminar categoría.
-
-### Variables de Entorno
-
-Opcionalmente puedes definir:
-
-* `MONGO_URI` en `app/db.py` para apuntar a tu MongoDB Atlas.
 
 ### Servir Imágenes
 
