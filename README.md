@@ -1,13 +1,13 @@
 # Servicio Publicar Ofertas de Servicios
 
-Este repositorio contiene un microservicio REST desarrollado con **FastAPI**, **Python** y **MongoDB** para gestionar la creación, consulta, actualización y eliminación de ofertas de servicios. Incluye filtros, paginación, CORS habilitado y una colección de categorías administrables.
+Este repositorio contiene un microservicio REST desarrollado con **FastAPI**, **Python** y **MongoDB** para gestionar la creación, consulta, actualización y eliminación de ofertas de servicios. Incluye filtros, paginación, CORS habilitado, subida de imágenes y una colección de categorías administrables.
 
 ---
 
 ## 📦 Tecnologías y dependencias
 
 * **Python** 3.9+
-* **FastAPI**  para construir la API REST
+* **FastAPI** para construir la API REST
 * **Uvicorn** como servidor ASGI
 * **Motor** (AsyncIO MongoDB driver) para acceso asíncrono a **MongoDB**
 * **MongoDB** (local o Atlas)
@@ -53,11 +53,11 @@ Las dependencias están listadas en `requirements.txt`.
 5. Arranca la aplicación en modo desarrollo:
 
    ```bash
-   uvicorn app.main:app --reload
+   uvicorn app.main:app --reload --port 8000
    ```
 
    * La API se expondrá en `http://127.0.0.1:8000/`
-   * Documentación interactiva en `http://127.0.0.1:8000/docs` (Swagger UI)
+   * Documentación interactiva en `http://127.0.0.1:8000/docs`
 
 ---
 
@@ -66,8 +66,9 @@ Las dependencias están listadas en `requirements.txt`.
 ```
 servicio-publicar-oferta/
 ├── app/
-│   ├── main.py        # Definición de endpoints y modelos
+│   ├── main.py        # Definición de endpoints, modelos y configuración (CORS, estáticos)
 │   └── db.py          # Conexión a MongoDB
+├── images/            # Directorio para almacenar imágenes subidas
 ├── requirements.txt   # Dependencias del proyecto
 └── README.md          # Documentación del proyecto
 ```
@@ -78,31 +79,52 @@ servicio-publicar-oferta/
 
 ### Ofertas
 
-| Método | Ruta            | Descripción                               |
-| ------ | --------------- | ----------------------------------------- |
-| POST   | `/ofertas`      | Crear nueva oferta                        |
-| GET    | `/ofertas`      | Listar ofertas (con filtros y paginación) |
-| GET    | `/ofertas/{id}` | Obtener detalle de una oferta             |
-| PUT    | `/ofertas/{id}` | Actualizar campos de una oferta existente |
-| DELETE | `/ofertas/{id}` | Eliminar una oferta por ID                |
+| Método | Ruta            | Descripción                                             |
+| ------ | --------------- | ------------------------------------------------------- |
+| POST   | `/ofertas`      | Crear nueva oferta con datos y opcionalmente una imagen |
+| GET    | `/ofertas`      | Listar ofertas (con filtros y paginación)               |
+| GET    | `/ofertas/{id}` | Obtener detalle de una oferta                           |
+| PUT    | `/ofertas/{id}` | Actualizar campos de una oferta y reemplazar imagen     |
+| DELETE | `/ofertas/{id}` | Eliminar una oferta por ID                              |
 
-**Filtros en GET /ofertas**:
+#### POST /ofertas (multipart/form-data)
 
-* `skip` (int): offset para paginación (por defecto 0)
-* `limit` (int): número máximo de resultados (por defecto 10)
-* `categoria` (str): filtra por nombre de categoría
-* `palabra_clave` (str): búsqueda por coincidencias en título o descripción
+* **Campos (FormData)**:
 
-Los modelos de oferta manejan los siguientes campos:
+  * `titulo` (string, min\_length=5)
+  * `descripcion` (string, min\_length=20)
+  * `categoria` (string)
+  * `ubicacion` (string)
+  * `palabras_clave` (string CSV, mínimo 1 palabra)
+  * `costo` (float, > 0)
+  * `horario` (string)
+  * `imagen` (file, opcional)
+* **Respuesta**: JSON de la oferta creada, incluyendo `imagen_url` si se subió imagen.
 
-* `titulo` (str, min 5 caracteres)
-* `descripcion` (str, min 20 caracteres)
-* `categoria` (str)
-* `ubicacion` (str)
-* `palabras_clave` (List\[str])
-* `costo` (float, mayor que 0)
-* `horario` (str)
-* `reputacion` (float, inicial 0.0)
+#### GET /ofertas
+
+* **Query params**:
+
+  * `skip` (int, default=0)
+  * `limit` (int, default=10)
+  * `categoria` (string, opcional)
+  * `palabra_clave` (string, opcional)
+* **Respuesta**: Array de ofertas.
+
+#### GET /ofertas/{id}
+
+* **Descripción**: Obtiene el detalle de una oferta por su ID.
+* **Respuesta**: JSON de la oferta.
+
+#### PUT /ofertas/{id} (multipart/form-data)
+
+* **Campos (FormData)**: mismos que POST, todos opcionales.
+* **Descripción**: Actualiza campos y permite reemplazar la imagen.
+
+#### DELETE /ofertas/{id}
+
+* **Descripción**: Elimina una oferta por su ID.
+* **Respuesta**: Mensaje de confirmación.
 
 ### Categorías
 
@@ -114,9 +136,31 @@ Los modelos de oferta manejan los siguientes campos:
 
 ---
 
+## 🖼️ Servir Imágenes
+
+* **Directorio local**: `images/`
+* **Ruta montada**: `/images`
+* **Acceso**: `http://localhost:8000/images/{nombre_de_archivo}`
+* **Uso**: El campo `imagen_url` devuelve la URL relativa. Combínala con el host.
+
+---
+
 ## 🔒 CORS
 
-Se ha habilitado CORS en todos los orígenes (`'*'`) para facilitar el desarrollo del frontend. Para producción, ajusta `origins` en `app.main` a tu(s) dominio(s) permitido(s).
+Se ha habilitado CORS con:
+
+```python
+origins = ["*"]
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+```
+
+Ajusta `origins` en producción a tus dominios permitidos.
 
 ---
 
@@ -131,4 +175,4 @@ Se ha habilitado CORS en todos los orígenes (`'*'`) para facilitar el desarroll
 
 ## 📄 Licencia
 
-Este proyecto se distribuye bajo la [Licencia MIT](LICENSE). ¡Siéntete libre de usarlo y adaptarlo!
+Este proyecto se distribuye bajo la [Licencia MIT](LICENSE). ¡Siéntete libre de usarlo y adaptarlo!\`\`\`
