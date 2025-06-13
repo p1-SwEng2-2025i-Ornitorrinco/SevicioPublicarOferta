@@ -173,6 +173,3 @@ Ajusta `origins` en producción a tus dominios permitidos.
 
 ---
 
-## 📄 Licencia
-
-Este proyecto se distribuye bajo la [Licencia MIT](LICENSE). ¡Siéntete libre de usarlo y adaptarlo!\`\`\`
