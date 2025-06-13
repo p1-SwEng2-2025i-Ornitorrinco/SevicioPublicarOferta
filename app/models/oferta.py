@@ -1,25 +1,32 @@
+# app/models/oferta.py
 from pydantic import BaseModel, Field
 from typing import List, Optional
+from datetime import datetime
 
 class OfertaIn(BaseModel):
-    titulo: str = Field(..., min_length=5, description="Título mínimo 5 caracteres")
-    descripcion: str = Field(..., min_length=20, description="Descripción mínimo 20 caracteres")
-    categoria: str = Field(..., description="Categoría (p.ej. 'Plomería', 'Electricidad', etc.)")
+    titulo: str = Field(..., min_length=5)
+    descripcion: str = Field(..., min_length=20)
+    categoria: str = Field(..., description="Categoría del servicio")
     ubicacion: str = Field(..., description="Ubicación del servicio")
-    palabras_clave: List[str] = Field(..., min_items=1, description="Lista de palabras clave relevantes")
-    costo: float = Field(..., gt=0, description="Costo del servicio, debe ser mayor que 0")
-    horario: str = Field(..., description="Horario en que el proveedor está disponible")
+    palabras_clave: Optional[List[str]] = Field(
+        None,
+        description="Lista de palabras clave relevantes (opcional)"
+    )
+    costo: float = Field(..., gt=0)
+    horario: Optional[str] = Field(
+        None,
+        description="Horario en que el proveedor está disponible (opcional)"
+    )
 
     model_config = {
         "json_schema_extra": {
             "example": {
-                "titulo": "Reparación de tubería de cocina",
-                "descripcion": "Necesito un plomero que repare una fuga en la tubería de la cocina...",
+                "titulo": "Reparación de tubería",
+                "descripcion": "Reparar fuga en tubería de cocina...",
                 "categoria": "Plomería",
-                "ubicacion": "Bogotá, Colombia",
-                "palabras_clave": ["fuga", "tubería", "cocina"],
-                "costo": 50000.0,
-                "horario": "Lun–Vie 15:00–18:00"
+                "ubicacion": "Bogotá",
+                # palabras_clave y horario pueden omitirse
+                "costo": 50000.0
             }
         }
     }
@@ -30,16 +37,18 @@ class OfertaOut(BaseModel):
     descripcion: str
     categoria: str
     ubicacion: str
-    palabras_clave: List[str]
+    palabras_clave: Optional[List[str]] = None
     costo: float
-    horario: str
+    horario: Optional[str] = None
     cliente_id: str
     cliente_nombre: str
+    created_at: datetime
     imagen_url: Optional[str] = None
 
     model_config = {"populate_by_name": True}
 
 class OfertaUpdate(BaseModel):
+    # los mismos campos opcionales que OfertaIn (sin created_at ni cliente info)
     titulo: Optional[str] = Field(None, min_length=5)
     descripcion: Optional[str] = Field(None, min_length=20)
     categoria: Optional[str] = None
@@ -47,5 +56,6 @@ class OfertaUpdate(BaseModel):
     palabras_clave: Optional[List[str]] = None
     costo: Optional[float] = Field(None, gt=0)
     horario: Optional[str] = None
+    imagen_url: Optional[str] = None
 
     model_config = {"json_schema_extra": {"example": {}}}

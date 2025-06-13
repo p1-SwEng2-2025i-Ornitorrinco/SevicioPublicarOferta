@@ -4,26 +4,26 @@ from bson import ObjectId
 from app.db.db import db
 from app.models.oferta import OfertaIn, OfertaOut, OfertaUpdate
 from app.utils.images import save_image
+from datetime import datetime
+
 
 router = APIRouter(prefix="/ofertas", tags=["Ofertas"])
 
 @router.post("", response_model=OfertaOut, status_code=201)
 async def crear_oferta(
-    titulo: str = Form(..., min_length=5),
-    descripcion: str = Form(..., min_length=20),
+    titulo: str = Form(...),
+    descripcion: str = Form(...),
     categoria: str = Form(...),
     ubicacion: str = Form(...),
-    palabras_clave: str = Form(...),  # CSV de palabras clave
-    costo: float = Form(..., gt=0),
-    horario: str = Form(...),
+    palabras_clave: Optional[str] = Form(None),  # CSV opcional
+    costo: float = Form(...),
+    horario: Optional[str] = Form(None),
     cliente_id: str = Form(...),
     cliente_nombre: str = Form(...),
     imagen: Optional[UploadFile] = File(None),
 ):
-    # Procesar palabras clave
-    claves = [kw.strip() for kw in palabras_clave.split(",") if kw.strip()]
-    if not claves:
-        raise HTTPException(status_code=400, detail="Se requieren palabras clave")
+    # Procesar palabras clave si vienen
+    claves = [kw.strip() for kw in (palabras_clave or "").split(",") if kw.strip()] or None
 
     oferta_dict = {
         "titulo": titulo,
@@ -35,18 +35,14 @@ async def crear_oferta(
         "horario": horario,
         "cliente_id": cliente_id,
         "cliente_nombre": cliente_nombre,
+        "created_at": datetime.utcnow(),   # ← fecha de creación
     }
-    # Guardar imagen si se proporcionó
-    if imagen:
-        ext = os.path.splitext(imagen.filename)[1]
-        filename = f"{uuid.uuid4().hex}{ext}"
-        file_path = os.path.join("images", filename)
-        with open(file_path, "wb") as f:
-            content = await imagen.read()
-            f.write(content)
-        oferta_dict["imagen_url"] = f"/images/{filename}"
 
-    # Insertar en MongoDB
+    # Subida de imagen (si existe)
+    if imagen:
+        url = save_image(imagen)  # tu helper de utils/images.py
+        oferta_dict["imagen_url"] = url
+
     result = await db.ofertas.insert_one(oferta_dict)
     nuevo = await db.ofertas.find_one({"_id": result.inserted_id})
     nuevo["_id"] = str(nuevo["_id"])
