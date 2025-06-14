@@ -51,7 +51,7 @@ async def crear_oferta(
 @router.get("", response_model=List[OfertaOut])
 async def listar_ofertas(
     skip: int = 0,
-    limit: int = 10,
+    limit: int = 100,
     categoria: Optional[str] = Query(None),
     palabra_clave: Optional[str] = Query(None),
 ):
