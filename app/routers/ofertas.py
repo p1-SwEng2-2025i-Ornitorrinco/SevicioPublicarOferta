@@ -51,24 +51,44 @@ async def crear_oferta(
 @router.get("", response_model=List[OfertaOut])
 async def listar_ofertas(
     skip: int = 0,
-    limit: int = 100,
+    limit: int = 10,
     categoria: Optional[str] = Query(None),
     palabra_clave: Optional[str] = Query(None),
+    ubicacion: Optional[str] = Query(None, description="Filtrar por ubicación exacta"),
+    costo_min: Optional[float] = Query(None, ge=0, description="Costo mínimo"),
+    costo_max: Optional[float] = Query(None, ge=0, description="Costo máximo"),
 ):
     filtro = {}
+
+    # Filtro por categoría
     if categoria:
         filtro["categoria"] = categoria
+
+    # Filtro por palabra clave en título o descripción
     if palabra_clave:
         filtro["$or"] = [
             {"titulo": {"$regex": palabra_clave, "$options": "i"}},
             {"descripcion": {"$regex": palabra_clave, "$options": "i"}}
         ]
+
+    # Filtro por ubicación
+    if ubicacion:
+        filtro["ubicacion"] = {"$regex": f"^{ubicacion}$", "$options": "i"}
+
+    # Filtro por rango de costo
+    if costo_min is not None or costo_max is not None:
+        filtro["costo"] = {}
+        if costo_min is not None:
+            filtro["costo"]["$gte"] = costo_min
+        if costo_max is not None:
+            filtro["costo"]["$lte"] = costo_max
+
     cursor = db.ofertas.find(filtro).skip(skip).limit(limit)
-    ofertas = []
+    resultados = []
     async for doc in cursor:
         doc["_id"] = str(doc["_id"])
-        ofertas.append(doc)
-    return ofertas
+        resultados.append(doc)
+    return resultados
 
 @router.put("", response_model=OfertaOut)
 async def actualizar_oferta(
