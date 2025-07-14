@@ -57,6 +57,7 @@ async def listar_ofertas(
     ubicacion: Optional[str] = Query(None, description="Filtrar por ubicación exacta"),
     costo_min: Optional[float] = Query(None, ge=0, description="Costo mínimo"),
     costo_max: Optional[float] = Query(None, ge=0, description="Costo máximo"),
+    cliente_id: Optional[str] = Query(None, description="Filtrar por ID de cliente")
 ):
     filtro = {}
 
@@ -82,6 +83,9 @@ async def listar_ofertas(
             filtro["costo"]["$gte"] = costo_min
         if costo_max is not None:
             filtro["costo"]["$lte"] = costo_max
+    if cliente_id:
+        filtro["cliente_id"] = cliente_id
+
 
     cursor = db.ofertas.find(filtro).skip(skip).limit(limit)
     resultados = []
