@@ -35,7 +35,8 @@ async def crear_oferta(
         "horario": horario,
         "cliente_id": cliente_id,
         "cliente_nombre": cliente_nombre,
-        "created_at": datetime.utcnow(),   # ← fecha de creación
+        "created_at": datetime.utcnow(),   # 
+        "visible": True,
     }
 
     # Subida de imagen (si existe)
@@ -57,7 +58,8 @@ async def listar_ofertas(
     ubicacion: Optional[str] = Query(None, description="Filtrar por ubicación exacta"),
     costo_min: Optional[float] = Query(None, ge=0, description="Costo mínimo"),
     costo_max: Optional[float] = Query(None, ge=0, description="Costo máximo"),
-    cliente_id: Optional[str] = Query(None, description="Filtrar por ID de cliente")
+    cliente_id: Optional[str] = Query(None, description="Filtrar por ID de cliente"),
+    solo_visibles: bool = Query(True, description="True para filtrar solo ofertas visibles"),
 ):
     filtro = {}
 
@@ -123,6 +125,23 @@ async def actualizar_oferta(
     doc = await db.ofertas.find_one({"_id": obj_id})
     doc["_id"] = str(doc["_id"])
     return doc
+
+@router.patch("/{id}/visibility", response_model=OfertaOut)
+async def cambiar_visibilidad(id: str, visible: bool = Form(..., description="Nuevo estado de visibilidad")):
+    try:
+        oid = ObjectId(id)
+    except:
+        raise HTTPException(400, "ID inválido")
+
+    # Actualizamos solamente el campo `visible`
+    result = await db.ofertas.update_one({"_id": oid}, {"$set": {"visible": visible}})
+    if result.matched_count == 0:
+        raise HTTPException(404, "Oferta no encontrada")
+
+    # Devolvemos la oferta actualizada
+    oferta = await db.ofertas.find_one({"_id": oid})
+    oferta["_id"] = str(oferta["_id"])
+    return oferta
 
 @router.delete("", status_code=200)
 async def eliminar_oferta(id: str):

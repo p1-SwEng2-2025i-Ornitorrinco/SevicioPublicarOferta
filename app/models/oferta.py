@@ -17,6 +17,10 @@ class OfertaIn(BaseModel):
         None,
         description="Horario en que el proveedor está disponible (opcional)"
     )
+    visible: Optional[bool] = Field(
+        None,
+        description="Si la oferta está visible (no se envía en el Form; siempre inicializamos en True)"
+    )
 
     model_config = {
         "json_schema_extra": {
@@ -44,6 +48,7 @@ class OfertaOut(BaseModel):
     cliente_nombre: str
     created_at: datetime
     imagen_url: Optional[str] = None
+    visible: bool = Field(..., description="Si la oferta está visible para búsquedas")
 
     model_config = {"populate_by_name": True}
 
