@@ -63,6 +63,9 @@ async def listar_ofertas(
 ):
     filtro = {}
 
+    if solo_visibles:
+        filtro["visible"] = True
+        
     # Filtro por categoría
     if categoria:
         filtro["categoria"] = categoria
