@@ -52,6 +52,21 @@ class OfertaOut(BaseModel):
 
     model_config = {"populate_by_name": True}
 
+class OfertaOutPerfil(BaseModel):
+    id: str = Field(..., alias="_id")
+    titulo: str
+    descripcion: str
+    categoria: str
+    ubicacion: str
+    palabras_clave: Optional[List[str]] = None
+    costo: float
+    horario: Optional[str] = None
+    imagen_url: Optional[str] = None
+    created_at: datetime
+    visible: bool = Field(..., description="Si la oferta está visible para búsquedas")
+
+    model_config = {"populate_by_name": True}
+
 class OfertaUpdate(BaseModel):
     # los mismos campos opcionales que OfertaIn (sin created_at ni cliente info)
     titulo: Optional[str] = Field(None, min_length=5)
