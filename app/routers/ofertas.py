@@ -52,7 +52,7 @@ async def crear_oferta(
 @router.get("", response_model=List[OfertaOut])
 async def listar_ofertas(
     skip: int = 0,
-    limit: int = 10,
+    limit: int = 1000,
     categoria: Optional[str] = Query(None),
     palabra_clave: Optional[str] = Query(None),
     ubicacion: Optional[str] = Query(None, description="Filtrar por ubicación exacta"),
