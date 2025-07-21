@@ -49,7 +49,6 @@ class OfertaOut(BaseModel):
     created_at: datetime
     imagen_url: Optional[str] = None
     visible: bool = Field(..., description="Si la oferta está visible para búsquedas")
-    # 🔥 NUEVOS CAMPOS PARA INFORMACIÓN DEL USUARIO
     cliente_foto_url: Optional[str] = None
     cliente_reputacion: Optional[float] = 0.0
 
@@ -67,3 +66,18 @@ class OfertaUpdate(BaseModel):
     imagen_url: Optional[str] = None
 
     model_config = {"json_schema_extra": {"example": {}}}
+
+class OfertaOutPerfil(BaseModel):
+    id: str = Field(..., alias="_id")
+    titulo: str
+    descripcion: str
+    categoria: str
+    ubicacion: str
+    palabras_clave: Optional[List[str]] = None
+    costo: float
+    horario: Optional[str] = None
+    imagen_url: Optional[str] = None
+    created_at: datetime
+    visible: bool = Field(..., description="Si la oferta está visible para búsquedas")
+
+    model_config = {"populate_by_name": True}

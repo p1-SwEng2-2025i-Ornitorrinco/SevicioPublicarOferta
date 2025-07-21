@@ -3,7 +3,7 @@ from fastapi import APIRouter, HTTPException, UploadFile, File, Form, Query
 from typing import List, Optional
 from bson import ObjectId
 from app.db.db import db
-from app.models.oferta import OfertaIn, OfertaOut, OfertaUpdate
+from app.models.oferta import OfertaIn, OfertaOut, OfertaUpdate, OfertaOutPerfil
 from app.utils.images import save_image
 from app.services.users_service import users_service  # 🔥 NUEVA IMPORTACIÓN
 from datetime import datetime
@@ -210,3 +210,12 @@ async def eliminar_oferta(id: str):
         raise HTTPException(status_code=404, detail="Oferta no encontrada")
 
     return {"mensaje": "Oferta eliminada correctamente"}
+
+@router.get("/cliente/{cliente_id}", response_model=List[OfertaOutPerfil])
+async def ofertas_por_cliente(cliente_id: str):
+    resultados = []
+    cursor = db.ofertas.find({"cliente_id": cliente_id, "visible": True})
+    async for doc in cursor:
+        doc["_id"] = str(doc["_id"])
+        resultados.append(doc)
+    return resultados
