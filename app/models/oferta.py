@@ -49,6 +49,9 @@ class OfertaOut(BaseModel):
     created_at: datetime
     imagen_url: Optional[str] = None
     visible: bool = Field(..., description="Si la oferta está visible para búsquedas")
+    # 🔥 NUEVOS CAMPOS PARA INFORMACIÓN DEL USUARIO
+    cliente_foto_url: Optional[str] = None
+    cliente_reputacion: Optional[float] = 0.0
 
     model_config = {"populate_by_name": True}
 
